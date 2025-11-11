@@ -1,7 +1,7 @@
 pipeline {
     agent any
     options {
-        timeout(time: 60, unit: 'MINUTES')
+        timeout(time: 15, unit: 'MINUTES')
         timestamps()
         buildDiscarder(logRotator(numToKeepStr: '10'))
         disableConcurrentBuilds()
@@ -10,69 +10,83 @@ pipeline {
         stage('Checkout') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
+                    echo '========================================'
+                    echo 'STAGE: Checkout'
+                    echo '========================================'
                     echo 'Checking out code from repository...'
                     checkout scm
+                    echo '✓ Checkout completed successfully'
                 }
             }
         }
-        stage('Terraform Apply') {
+        stage('Validate & Build') {
             steps {
-                timeout(time: 20, unit: 'MINUTES') {
-                    echo 'Starting Terraform Apply stage...'
-                    dir('Terraform') {
-                        sh '''
-                            set -e
-                            echo "Running terraform init..."
-                            terraform init -no-color
-                            echo "Terraform init completed"
-                            echo "Running terraform apply..."
-                            terraform apply -auto-approve -no-color -input=false
-                            echo "Terraform apply completed successfully"
-                        '''
-                    }
+                timeout(time: 10, unit: 'MINUTES') {
+                    echo '========================================'
+                    echo 'STAGE: Validate & Build'
+                    echo '========================================'
+                    sh '''
+                        set -e
+                        echo "Current directory: $(pwd)"
+                        echo "Directory contents:"
+                        ls -la
+                        
+                        echo ""
+                        echo "Validating required files..."
+                        if [ -f "app/Dockerfile" ]; then
+                            echo "✓ Dockerfile found"
+                        else
+                            echo "✗ ERROR: Dockerfile not found in app/"
+                            exit 1
+                        fi
+                        
+                        if [ -f "app/index.html" ]; then
+                            echo "✓ index.html found"
+                        else
+                            echo "✗ ERROR: index.html not found in app/"
+                            exit 1
+                        fi
+                        
+                        echo ""
+                        echo "Building Docker image..."
+                        docker --version
+                        cd app
+                        docker build -t mywebapp:latest .
+                        echo "✓ Docker image built successfully"
+                        
+                        echo ""
+                        echo "Verifying Docker image..."
+                        docker images | grep mywebapp
+                        echo "✓ Docker image verification passed"
+                    '''
                 }
             }
         }
-        stage('Ansible Configure') {
-            when {
-                expression {
-                    return fileExists('Ansible/playbook.yaml')
-                }
-            }
+        stage('Deploy') {
             steps {
-                timeout(time: 20, unit: 'MINUTES') {
-                    echo 'Starting Ansible Configure stage...'
-                    dir('Ansible') {
-                        sh '''
-                            set -e
-                            echo "Running ansible-playbook..."
-                            ansible-playbook -i inventory.ini playbook.yaml -v
-                            echo "Ansible playbook completed successfully"
-                        '''
-                    }
-                }
-            }
-        }
-        stage('Docker Deploy') {
-            when {
-                expression {
-                    return fileExists('app/Dockerfile')
-                }
-            }
-            steps {
-                timeout(time: 15, unit: 'MINUTES') {
-                    echo 'Starting Docker Deploy stage...'
-                    dir('app') {
-                        sh '''
-                            set -e
-                            echo "Building Docker image..."
-                            docker build -t mywebapp .
-                            echo "Docker image built successfully"
-                            echo "Running Docker container..."
-                            docker run -d -p 80:80 mywebapp || echo "Container already running or port in use"
-                            echo "Docker deployment completed"
-                        '''
-                    }
+                timeout(time: 5, unit: 'MINUTES') {
+                    echo '========================================'
+                    echo 'STAGE: Deploy'
+                    echo '========================================'
+                    sh '''
+                        set -e
+                        echo "Stopping any previous containers..."
+                        docker stop mywebapp || true
+                        docker rm mywebapp || true
+                        
+                        echo ""
+                        echo "Deploying Docker container..."
+                        docker run -d --name mywebapp -p 8080:80 mywebapp:latest
+                        
+                        echo ""
+                        echo "Verifying container is running..."
+                        docker ps | grep mywebapp
+                        echo "✓ Container is running successfully"
+                        
+                        echo ""
+                        echo "Container logs:"
+                        docker logs mywebapp || true
+                    '''
                 }
             }
         }
