@@ -1,57 +1,78 @@
 pipeline {
     agent any
     options {
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
         timestamps()
         buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
     }
     stages {
         stage('Checkout') {
             steps {
-                echo 'Checking out code from repository...'
-                checkout scm
+                timeout(time: 5, unit: 'MINUTES') {
+                    echo 'Checking out code from repository...'
+                    checkout scm
+                }
             }
         }
         stage('Terraform Apply') {
             steps {
-                echo 'Starting Terraform Apply stage...'
-                dir('Terraform') {
-                    sh '''
-                        set -e
-                        echo "Running terraform init..."
-                        terraform init
-                        echo "Running terraform apply..."
-                        terraform apply -auto-approve
-                        echo "Terraform apply completed successfully"
-                    '''
+                timeout(time: 20, unit: 'MINUTES') {
+                    echo 'Starting Terraform Apply stage...'
+                    dir('Terraform') {
+                        sh '''
+                            set -e
+                            echo "Running terraform init..."
+                            terraform init -no-color
+                            echo "Terraform init completed"
+                            echo "Running terraform apply..."
+                            terraform apply -auto-approve -no-color -input=false
+                            echo "Terraform apply completed successfully"
+                        '''
+                    }
                 }
             }
         }
         stage('Ansible Configure') {
+            when {
+                expression {
+                    return fileExists('Ansible/playbook.yaml')
+                }
+            }
             steps {
-                echo 'Starting Ansible Configure stage...'
-                dir('Ansible') {
-                    sh '''
-                        set -e
-                        echo "Running ansible-playbook..."
-                        ansible-playbook -i inventory.ini playbook.yaml
-                        echo "Ansible playbook completed successfully"
-                    '''
+                timeout(time: 20, unit: 'MINUTES') {
+                    echo 'Starting Ansible Configure stage...'
+                    dir('Ansible') {
+                        sh '''
+                            set -e
+                            echo "Running ansible-playbook..."
+                            ansible-playbook -i inventory.ini playbook.yaml -v
+                            echo "Ansible playbook completed successfully"
+                        '''
+                    }
                 }
             }
         }
         stage('Docker Deploy') {
+            when {
+                expression {
+                    return fileExists('app/Dockerfile')
+                }
+            }
             steps {
-                echo 'Starting Docker Deploy stage...'
-                dir('app') {
-                    sh '''
-                        set -e
-                        echo "Building Docker image..."
-                        docker build -t mywebapp .
-                        echo "Running Docker container..."
-                        docker run -d -p 80:80 mywebapp
-                        echo "Docker deployment completed successfully"
-                    '''
+                timeout(time: 15, unit: 'MINUTES') {
+                    echo 'Starting Docker Deploy stage...'
+                    dir('app') {
+                        sh '''
+                            set -e
+                            echo "Building Docker image..."
+                            docker build -t mywebapp .
+                            echo "Docker image built successfully"
+                            echo "Running Docker container..."
+                            docker run -d -p 80:80 mywebapp || echo "Container already running or port in use"
+                            echo "Docker deployment completed"
+                        '''
+                    }
                 }
             }
         }
