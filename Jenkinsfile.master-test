@@ -1,0 +1,27 @@
+pipeline {
+  agent { label 'master' }
+  options {
+    timeout(time: 3, unit: 'MINUTES')
+    timestamps()
+  }
+  stages {
+    stage('Master Echo') {
+      steps {
+        echo "Running on node: ${env.NODE_NAME}"
+        script {
+          echo "isUnix: ${isUnix()}"
+          if (isUnix()) {
+            sh 'uname -a || true'
+            sh 'echo Hello from master node'
+          } else {
+            bat 'ver'
+            bat 'echo Hello from master node'
+          }
+        }
+      }
+    }
+  }
+  post {
+    always { echo "Master-run test finished: ${currentBuild.fullDisplayName}" }
+  }
+}
