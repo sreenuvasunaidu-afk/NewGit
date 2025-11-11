@@ -7,6 +7,43 @@ pipeline {
         disableConcurrentBuilds()
     }
     stages {
+        stage('Diagnostics') {
+            steps {
+                echo '========================================'
+                echo 'STAGE: Diagnostics'
+                echo '========================================'
+                script {
+                    echo "Environment variables:"
+                    sh(returnStdout: true, script: 'env || set || true').trim().split('\n').each { echo it }
+
+                    // Check sh availability (returns status rather than failing the build)
+                    def shStatus = -1
+                    try {
+                        shStatus = sh(returnStatus: true, script: 'echo SH_OK; uname -a || ver')
+                    } catch (err) {
+                        shStatus = -1
+                    }
+                    echo "sh return status: ${shStatus}"
+
+                    // Check bat availability
+                    def batStatus = -1
+                    try {
+                        batStatus = bat(returnStatus: true, script: 'echo BAT_OK & ver')
+                    } catch (err) {
+                        batStatus = -1
+                    }
+                    echo "bat return status: ${batStatus}"
+
+                    // Check Docker using both sh and bat (whichever is present)
+                    def dockerSh = sh(returnStatus: true, script: 'docker --version')
+                    echo "docker (sh) return status: ${dockerSh}"
+                    def dockerBat = bat(returnStatus: true, script: 'docker --version')
+                    echo "docker (bat) return status: ${dockerBat}"
+
+                    echo 'Diagnostics done.\nPlease share the Console Output for this stage if issues persist.'
+                }
+            }
+        }
         stage('Checkout') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
