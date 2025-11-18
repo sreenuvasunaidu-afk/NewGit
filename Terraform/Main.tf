@@ -46,12 +46,11 @@ resource "aws_route" "internet_access" {
   }
 
   ingress {
-    from_port   = 80
-    to_port     = 80
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"]  # Jenkins console
   }
-
   egress {
     from_port   = 0
     to_port     = 0
