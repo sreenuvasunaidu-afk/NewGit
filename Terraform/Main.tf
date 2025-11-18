@@ -62,7 +62,7 @@ resource "aws_route" "internet_access" {
 }
 	resource "aws_key_pair" "demo_key" {
   key_name   = "mini-project-key"
-  public_key = file("/c/Users/dpava/.ssh/.ssh/id_rsa.pub")
+  public_key = file("/c/Users/dpava/.ssh/id_rsa.pub")
 }
 resource "aws_instance" "web" {
   ami                    = "ami-02b8269d5e85954ef" # Ubuntu 20.04
