@@ -11,7 +11,7 @@ pipeline {
         }
         stage('Ansible Configure') {
             steps {
-                dir('ansible') {
+                dir('Ansible') {
                     sh 'ansible-playbook -i inventory.ini playbook.yml'
                 }
             }
