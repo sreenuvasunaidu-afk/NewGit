@@ -33,6 +33,7 @@ resource "aws_route" "internet_access" {
   resource "aws_route_table_association" "public_subnet_assoc" {
   subnet_id      = aws_subnet.public_subnet.id
   route_table_id = aws_route_table.public_rt.id
+  }
 	resource "aws_security_group" "web_sg" {
   name        = "mini-project-sg"
   description = "Allow SSH & HTTP"
